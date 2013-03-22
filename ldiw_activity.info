@@ -1,0 +1,3 @@
+name = ldiw activity
+description  = Simple module to log user activity and output this to api
+core = 6.x
