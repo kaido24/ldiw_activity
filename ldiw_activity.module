@@ -36,29 +36,22 @@ function ldiw_activity_log_action(&$object, $context = array()) {
   }
   if ($context['hook'] == 'nodeapi'){
     $added_node = $context['node'];
+    if (!isset($added_node->nid)) {
+      $added_node = $object;
+    }
     switch ($context['op']) {
       case 'insert':
-        if ($context['node']->type != 'ldiw_activity') {
-         $message = $added_node->name . ' ' . t('added wastepoint');
+        if ($added_node->type != 'ldiw_activity') {
+         $message = $user->name . ' ' . t('added wastepoint');
         }
       break;
       case 'update':
-        if ($context['node']->type != 'ldiw_activity') {
-          $message = $added_node->name . ' ' . t('updated a wastepoint');
+        if ($added_node->type != 'ldiw_activity') {
+          $message = $user->name . ' ' . t('updated a wastepoint');
         }
       break;
     }
   }
-  // Somehow context variable didn't work as I would expect.
-  // But the we still have $object variable to use ;).
-  //dsm($context);
-  /*
-  if (isset($object->type) && ) {
-    $message = $user->name . ' ' . t('added wastepoint');
-    $coordinates = $object->field_coordinates[0]['geo'];
-      print_r($object);
-  }
-  */
   //dsm($context);
   if (isset($message)) {
     $node = new stdClass();
@@ -71,35 +64,32 @@ function ldiw_activity_log_action(&$object, $context = array()) {
     $node->status = 0; //(1 or 0): published or not
     $node->promote = 0; //(1 or 0): promoted to front page
     $node->comment = 1; //2 = comments on, 1 = comments 
-    $coords = ldiw_activity_node_coords($added_node->nid);
-    // Entity reference field
-    $node->field_coords[0]['geo'] = $coords;
    // $node->field_coordinates[0]['geo']['lon'] = 34;
     //dsm($coords);
 //    watchdog('test', print_r($coords), $variables = array(), $severity = WATCHDOG_NOTICE, $link = NULL);
     $node->field_added_node_ref[0]['nid'] = $added_node->nid;
+    $coords = ldiw_activity_node_coords($added_node->nid);
+    // Entity reference field
+    $node->body = $coords;
+    $node->field_coords[0]['geo'] = $coords;
     $node = node_submit($node); // Prepare node for saving
     node_save($node);
   }
 }
 
 function ldiw_activity_node_coords($nid) {
-    global $db_type;
-    if ($db_type == 'mysql') {
+    if ($GLOBALS['db_type'] === 'mysql') {
       $result = db_query("SELECT node.nid AS nid,
             AsText(node_data_field_coords.field_coords_geo) AS pointastext 
              FROM {node} node  LEFT JOIN {content_field_coords} node_data_field_coords 
              ON node.vid = node_data_field_coords.vid 
-             WHERE node.nid = %d",
-              array($nid));
+             WHERE node.nid = %d", $nid);
     } else {
       $result = db_query("SELECT node.nid AS nid,
             st_AsText(node_data_field_coords.field_coords_geo) AS pointastext 
              FROM {node} node  LEFT JOIN {content_field_coords} node_data_field_coords 
              ON node.vid = node_data_field_coords.vid 
-             WHERE node.nid = %d",
-              array($nid));
+             WHERE node.nid= %d", $nid);
     }
-  
  return db_fetch_object($result)->pointastext;
 }
