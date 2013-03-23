@@ -1,55 +1,4 @@
 <?php
-/**
-*  Implements hook_menu().
-*/
-function ldiw_activity_menu() {
-  $items = array();
-  $items['user/%/activities.json'] = array(
-      'page callback' => 'ldiw_user_activities_view',
-      'access callback' => 'ldiw_activity_access',
-      'page arguments' => array(1),
-      'type' => MENU_CALLBACK,
-  );
-  $items['user/%/friend_activities.json'] = array(
-      'page callback' => 'ldiw_user_friend_activities_view',
-      'access callback' => 'ldiw_activity_access',
-      'page arguments' => array(1),
-      'type' => MENU_CALLBACK,
-  );
-  return $items;
-}
-/**
-* Read user activity log and create json output.
-*/
-function ldiw_user_activities_view($uid) {
-  $data = db_query("select * from {ldiw_activity} where uid = %d",$uid);
-  while ($item = db_fetch_array($data)) {
-   $sjon[] = $item;
- }
-  print drupal_to_js($sjon);
-}
-
-/**
-* Menu page callback.
-* Read user friend activities and create json output.
-*/
-function ldiw_user_friend_activities_view($uid) {
-  global $user;
-  $profile = node_load(array(
-    'uid' => $user->uid,
-    'type' => 'profile',
-  ));
-  foreach ($profile->field_fb_friend_id as $key => $val) {
-    $ids[] = $val['value'];
-  }
-  $uids = implode(',', $ids);
-  $data = db_query("select * from {ldiw_activity} where uid in (%s)",$uids);
-  while ($item = db_fetch_array($data)) {
-   $sjon[] = $item;
-   //print_r($item);
- }
-  print drupal_to_js($sjon);
-}
 
 /**
 * Implements hook_action_info().
@@ -59,12 +8,11 @@ function ldiw_activity_action_info() {
     'ldiw_activity_log_action' => array(
        'type' => 'ldiw action log',
        'description' => t('Log ldiw user actions'),
-       'configurable' => FALSE,
+       'configurable' => TRUE,
        'hooks' => array(
-         'nodeapi' => array('presave', 'insert', 'update', 'view'),
-         'comment' => array('presave', 'insert', 'update', 'view'),
-         'user' => array('presave','login', 'register', 'update'),
-       )
+          'nodeapi' => array('insert', 'update'),
+          'user' => array('register', 'login'),
+      ),
     )
   );
 }
@@ -74,35 +22,84 @@ function ldiw_activity_action_info() {
 */
 function ldiw_activity_log_action(&$object, $context = array()) {
   global $user;
-  $nid = NULL;
+  //dsm($user);
   if ($context['hook'] == 'user') {
     switch ($context['op']) {
       case 'login':
-      $message = $user->name . ' ' . t('logged in');
+        $message = $user->name . ' ' . t('logged in');
       break;
       case 'register':
-      $message = $user->name . ' ' . t('joined Lets do it');
+        $message = $user->name . ' ' . t('joined Lets do it');
+        
+      break;
+    }
+  }
+  if ($context['hook'] == 'nodeapi'){
+    $added_node = $context['node'];
+    switch ($context['op']) {
+      case 'insert':
+        if ($context['node']->type != 'ldiw_activity') {
+         $message = $added_node->name . ' ' . t('added wastepoint');
+        }
+      break;
+      case 'update':
+        if ($context['node']->type != 'ldiw_activity') {
+          $message = $added_node->name . ' ' . t('updated a wastepoint');
+        }
       break;
     }
   }
   // Somehow context variable didn't work as I would expect.
   // But the we still have $object variable to use ;).
-  if (isset($object->type) && $object->type == 'waste_point') {
+  //dsm($context);
+  /*
+  if (isset($object->type) && ) {
     $message = $user->name . ' ' . t('added wastepoint');
-    $nid = $object->nid;
-    $coordinates = $object->field_coords[0]['geo'];
+    $coordinates = $object->field_coordinates[0]['geo'];
       print_r($object);
   }
+  */
+  //dsm($context);
   if (isset($message)) {
-    db_query("insert into {ldiw_activity} (uid, time, message, nid) values ( %d, %d, '%s', %d, %s)",  $user->uid, time(), $message, $nid, $coordinates);
+    $node = new stdClass();
+    $node->title = $message;
+    $node->type = "ldiw_activity";
+    $node->uid = $user->uid; 
+    node_object_prepare($node);
+    $node->language = ''; // Or e.g. 'en' if locale is enabled
+    $node->uid = $added_node->uid; 
+    $node->status = 0; //(1 or 0): published or not
+    $node->promote = 0; //(1 or 0): promoted to front page
+    $node->comment = 1; //2 = comments on, 1 = comments 
+    $coords = ldiw_activity_node_coords($added_node->nid);
+    // Entity reference field
+    $node->field_coords[0]['geo'] = $coords;
+   // $node->field_coordinates[0]['geo']['lon'] = 34;
+    //dsm($coords);
+//    watchdog('test', print_r($coords), $variables = array(), $severity = WATCHDOG_NOTICE, $link = NULL);
+    $node->field_added_node_ref[0]['nid'] = $added_node->nid;
+    $node = node_submit($node); // Prepare node for saving
+    node_save($node);
   }
-
 }
 
-/**
-* Menu ccess callback.
-*/
-function ldiw_activity_access() {
-  global $user;
-  return $user->uid > 0 ? TRUE : FALSE;
+function ldiw_activity_node_coords($nid) {
+    global $db_type;
+    if ($db_type == 'mysql') {
+      $result = db_query("SELECT node.nid AS nid,
+            AsText(node_data_field_coords.field_coords_geo) AS pointastext 
+             FROM {node} node  LEFT JOIN {content_field_coords} node_data_field_coords 
+             ON node.vid = node_data_field_coords.vid 
+             WHERE node.nid = %d",
+              array($nid));
+    } else {
+      $result = db_query("SELECT node.nid AS nid,
+            st_AsText(node_data_field_coords.field_coords_geo) AS pointastext 
+             FROM {node} node  LEFT JOIN {content_field_coords} node_data_field_coords 
+             ON node.vid = node_data_field_coords.vid 
+             WHERE node.nid = %d",
+              array($nid));
+    }
+  
+ return db_fetch_object($result)->pointastext;
 }
