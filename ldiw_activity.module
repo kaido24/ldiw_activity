@@ -68,15 +68,14 @@ function ldiw_activity_log_action(&$object, $context = array()) {
     //dsm($coords);
 //    watchdog('test', print_r($coords), $variables = array(), $severity = WATCHDOG_NOTICE, $link = NULL);
     $node->field_added_node_ref[0]['nid'] = $added_node->nid;
-    $coords = ldiw_activity_node_coords($added_node->nid);
+  //  $coords = ldiw_activity_node_coords($added_node->nid);
     // Entity reference field
-    $node->body = $coords;
-    $node->field_coords[0]['geo'] = $coords;
+   // $node->field_coords[0]['geo'] = $coords;
     $node = node_submit($node); // Prepare node for saving
     node_save($node);
   }
 }
-
+/*
 function ldiw_activity_node_coords($nid) {
     if ($GLOBALS['db_type'] === 'mysql') {
       $result = db_query("SELECT node.nid AS nid,
@@ -93,3 +92,4 @@ function ldiw_activity_node_coords($nid) {
     }
  return db_fetch_object($result)->pointastext;
 }
+*/
