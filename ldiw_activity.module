@@ -1,5 +1,7 @@
 <?php
-
+error_reporting(E_ALL);
+ini_set('display_errors', TRUE);
+ini_set('display_startup_errors', TRUE);  
 /**
 * Implements hook_action_info().
 */
@@ -58,7 +60,7 @@ function ldiw_activity_log_action(&$object, $context = array()) {
     $node->title = $message;
     $node->type = "ldiw_activity";
     $node->uid = $user->uid; 
-    node_object_prepare($node);
+   // node_object_prepare($node);
     $node->language = ''; // Or e.g. 'en' if locale is enabled
     $node->uid = $added_node->uid; 
     $node->status = 0; //(1 or 0): published or not
