@@ -56,42 +56,35 @@ function ldiw_activity_log_action(&$object, $context = array()) {
   }
   //dsm($context);
   if (isset($message)) {
-    $node = new stdClass();
-    $node->title = $message;
-    $node->type = "ldiw_activity";
-    $node->uid = $user->uid; 
-   // node_object_prepare($node);
-    $node->language = ''; // Or e.g. 'en' if locale is enabled
-    $node->uid = $added_node->uid; 
-    $node->status = 0; //(1 or 0): published or not
-    $node->promote = 0; //(1 or 0): promoted to front page
-    $node->comment = 1; //2 = comments on, 1 = comments 
-   // $node->field_coordinates[0]['geo']['lon'] = 34;
-    //dsm($coords);
-//    watchdog('test', print_r($coords), $variables = array(), $severity = WATCHDOG_NOTICE, $link = NULL);
-    $node->field_added_node_ref[0]['nid'] = $added_node->nid;
-  //  $coords = ldiw_activity_node_coords($added_node->nid);
-    // Entity reference field
-   // $node->field_coords[0]['geo'] = $coords;
-    $node = node_submit($node); // Prepare node for saving
-    node_save($node);
+    $data['uid'] = $user->uid;
+    $data['reference_nid'] = $added_node->nid;
+    ldiw_activity_create_entry($data, $context['op'], $message);
   }
 }
-/*
-function ldiw_activity_node_coords($nid) {
-    if ($GLOBALS['db_type'] === 'mysql') {
-      $result = db_query("SELECT node.nid AS nid,
-            AsText(node_data_field_coords.field_coords_geo) AS pointastext 
-             FROM {node} node  LEFT JOIN {content_field_coords} node_data_field_coords 
-             ON node.vid = node_data_field_coords.vid 
-             WHERE node.nid = %d", $nid);
-    } else {
-      $result = db_query("SELECT node.nid AS nid,
-            st_AsText(node_data_field_coords.field_coords_geo) AS pointastext 
-             FROM {node} node  LEFT JOIN {content_field_coords} node_data_field_coords 
-             ON node.vid = node_data_field_coords.vid 
-             WHERE node.nid= %d", $nid);
-    }
- return db_fetch_object($result)->pointastext;
-}
+/**
+* @param $data Contain current user uid, longitude and lattitude.
+* @param $type Activity type.
+* @param $message Activity message.
 */
+function ldiw_activity_create_entry($data = array(), $type = '', $message = '') {
+  $node = new stdClass();
+  $node->title = $message;
+  $node->type = "ldiw_activity";
+  $node->uid = $data['uid']; 
+  // node_object_prepare($node);
+  $node->language = ''; // Or e.g. 'en' if locale is enabled
+  $node->uid =  $data['uid']; 
+  $node->status = 0; //(1 or 0): published or not
+  $node->promote = 0; //(1 or 0): promoted to front page
+  $node->comment = 1; //2 = comments on, 1 = comments 
+  if(!empty($data['lon']) && !empty($data['lat'])) {
+    $node->field_coordinates[0]['geo']['lon'] = $data['lon'];
+    $node->field_coordinates[0]['geo']['lat'] = $data['lat'];
+  }
+  if (isset($data['reference_nid'])){
+    $node->field_added_node_ref[0]['nid'] = $data['reference_nid'];
+  }
+  $node->field_event_type[0]['value'] = $type;
+  $node = node_submit($node); // Prepare node for saving
+  node_save($node);
+}
