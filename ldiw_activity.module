@@ -1,88 +1,33 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', TRUE);
-ini_set('display_startup_errors', TRUE);
+
 /**
-* Implements hook_action_info().
+* Implements hook_nodeapi().
 */
-function ldiw_activity_action_info() {
-  return array(
-    'ldiw_activity_log_action' => array(
-       'type' => 'ldiw action log',
-       'description' => t('Log ldiw user actions'),
-       'configurable' => TRUE,
-       'hooks' => array(
-          'nodeapi' => array('insert', 'update'),
-          'user' => array('register', 'login'),
-      ),
-    )
-  );
-}
 function ldiw_activity_nodeapi(&$node, $op) {
-  $fbid = fboauth_fbid_load($node->uid);
   global $user;
-  if ($fbid) {
-    switch ($op) {
-      case 'insert':
-        $message = $user->name . ' added a wastepoint';
-        break;
+  if ($node->type ==  'waste_point') {
+    $fbid = fboauth_fbid_load($node->uid);
+    if ($fbid) {
+      switch ($op) {
+        case 'insert':
+          $message = $user->name . ' added a wastepoint';
+          break;
 
-      case 'update':
-        $message = $user->name . ' updated a wastepoint';
-        break;
-    }
-     //dsm($context);
-    if (isset($message)) {
-      $data['uid'] = $node->uid;
-      $data['reference_nid'] = $node->nid;
-      //print_r($node);
-      ldiw_activity_create_entry($data, $op, $message);
+        case 'update':
+          $message = $user->name . ' updated a wastepoint';
+          break;
+      }
+       //dsm($context);
+      if (isset($message)) {
+        $data['uid'] = $node->uid;
+        $data['reference_nid'] = $node->nid;
+        //print_r($node);
+        ldiw_activity_create_entry($data, $op, $message);
+      }
     }
   }
 }
 
-/**
-* Function (ldiw_activity_action_info) action callback.
-*/
-function ldiw_activity_log_action(&$object, $context = array()) {
-  global $user;
-  //dsm($user);
-  if ($context['hook'] == 'user') {
-    switch ($context['op']) {
-      case 'login':
-        $message = $user->name . ' ' . t('logged in');
-      break;
-      case 'register':
-        $message = $user->name . ' ' . t('joined Lets do it');
-
-      break;
-    }
-  }
-  if ($context['hook'] == 'nodeapi'){
-    $added_node = $context['node'];
-    if (!isset($added_node->nid)) {
-      $added_node = $object;
-    }
-    switch ($context['op']) {
-      case 'insert':
-        if ($added_node->type != 'ldiw_activity') {
-         $message = $user->name . ' ' . t('added wastepoint');
-        }
-      break;
-      case 'update':
-        if ($added_node->type != 'ldiw_activity') {
-          $message = $user->name . ' ' . t('updated a wastepoint');
-        }
-      break;
-    }
-  }
-  //dsm($context);
-  if (isset($message)) {
-    $data['uid'] = $user->uid;
-    $data['reference_nid'] = $added_node->nid;
-    ldiw_activity_create_entry($data, $context['op'], $message);
-  }
-}
 /**
 * @param $data Contain current user uid, longitude and lattitude.
 * @param $type Activity type.
