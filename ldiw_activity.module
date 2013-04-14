@@ -18,6 +18,12 @@ function ldiw_activity_action_info() {
     )
   );
 }
+function ldiw_activity_nodeapi(&$node, $op) {
+  $fbid = fboauth_fbid_load($node->uid);
+  if ($fbid) {
+    print_r($node);
+  }
+}
 
 /**
 * Function (ldiw_activity_action_info) action callback.
